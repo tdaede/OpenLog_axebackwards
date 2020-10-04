@@ -62,7 +62,7 @@
 /**
  * Set ENABLE_RX_ERROR_CHECKING zero to disable RX error checking.
  */
-#define ENABLE_RX_ERROR_CHECKING 1
+#define ENABLE_RX_ERROR_CHECKING 0
 //------------------------------------------------------------------------------
 // Define symbols to allocate 64 byte ring buffers with capacity for 63 bytes.
 /** Define NewSerial with buffering like Arduino 1.0. */

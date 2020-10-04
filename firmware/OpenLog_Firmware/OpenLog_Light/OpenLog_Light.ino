@@ -25,9 +25,9 @@
 #include <SdFat.h> //We do not use the built-in SD.h file because it calls Serial.print
 #include <SerialPort.h> //This is a new/beta library written by Bill Greiman. You rock Bill!
 #include <EEPROM.h>
-#include <FreeStack.h> //Allows us to print the available stack/RAM size
+//#include <FreeStack.h> //Allows us to print the available stack/RAM size
 
-SerialPort<0, 850, 0> NewSerial;
+SerialPort<0, 512, 128> NewSerial;
 //This is a very important buffer declaration. This sets the <port #, rx size, tx size>. We set
 //the TX buffer to zero because we will be spending most of our time needing to buffer the incoming (RX) characters.
 
@@ -105,26 +105,34 @@ byte setting_ignore_RX; //This flag, when set to 1 will make OpenLog ignore the 
 //The function will never exit - it loops forever inside blink_error
 void systemError(byte error_type)
 {
-  NewSerial.print(F("Error "));
+  //NewSerial.print(F("Error "));
   switch(error_type)
   {
   case ERROR_CARD_INIT:
-    NewSerial.print(F("card.init")); 
+    //NewSerial.print(F("card.init")); 
     blink_error(ERROR_SD_INIT);
     break;
   case ERROR_VOLUME_INIT:
-    NewSerial.print(F("volume.init")); 
+    //NewSerial.print(F("volume.init")); 
     blink_error(ERROR_SD_INIT);
     break;
   case ERROR_ROOT_INIT:
-    NewSerial.print(F("root.init")); 
+    //NewSerial.print(F("root.init")); 
     blink_error(ERROR_SD_INIT);
     break;
   case ERROR_FILE_OPEN:
-    NewSerial.print(F("file.open")); 
+    //NewSerial.print(F("file.open")); 
     blink_error(ERROR_SD_INIT);
     break;
   }
+}
+
+int timer1_counter;
+
+ISR(TIMER1_OVF_vect)        // interrupt service routine 
+{
+  TCNT1 = timer1_counter;   // preload timer
+  NewSerial.print(F("\2\1\4@\204\3")); // get mc data for local
 }
 
 void setup(void)
@@ -142,9 +150,24 @@ void setup(void)
   DIDR1 = (1<<AIN1D)|(1<<AIN0D); //Disable digital input buffer on AIN1/0
 
   power_twi_disable();
-  power_timer1_disable();
+  //power_timer1_disable();
   power_timer2_disable();
   power_adc_disable();
+
+  // setup timer for serial transmit
+  TCCR1A = 0;
+  TCCR1B = 0;
+
+  noInterrupts();
+  // Set timer1_counter to the correct value for our interrupt interval
+  //timer1_counter = 64911;   // preload timer 65536-16MHz/256/100Hz
+  //timer1_counter = 64286;   // preload timer 65536-16MHz/256/50Hz
+  timer1_counter = 34286;   // preload timer 65536-16MHz/256/2Hz
+  
+  TCNT1 = timer1_counter;   // preload timer
+  TCCR1B |= (1 << CS12);    // 256 prescaler 
+  TIMSK1 |= (1 << TOIE1);   // enable timer overflow interrupt
+  interrupts();
 
   read_system_settings(); //Load all system settings from EEPROM
 
@@ -158,13 +181,13 @@ void setup(void)
     UBRR0 = (F_CPU / (16UL * setting_uart_speed)) - 1;
     UCSR0A &= ~_BV(U2X0);
   }
-  NewSerial.print(F("1"));
+  //NewSerial.print(F("1"));
 
   //Setup SD & FAT
   if (!sd.begin(SD_CHIP_SELECT, SPI_FULL_SPEED)) systemError(ERROR_CARD_INIT);
   if (!sd.chdir()) systemError(ERROR_ROOT_INIT); //Change to root directory. All new file creation will be in root.
 
-  NewSerial.print(F("2"));
+  //NewSerial.print(F("2"));
 
   //Search for a config file and load any settings found. This will over-ride previous EEPROM settings if found.
   read_config_file();
@@ -223,7 +246,7 @@ char* newlog(void)
   if(new_file_number == 65534)
   {
     //Gracefully drop out to command prompt with some error
-    NewSerial.print(F("!Too many logs:1!"));
+    //NewSerial.print(F("!Too many logs:1!"));
     return(0); //Bail!
   }
 
@@ -254,7 +277,7 @@ char* newlog(void)
     new_file_number++;
     if(new_file_number > 65533) //There is a max of 65534 logs
     {
-      NewSerial.print(F("!Too many logs:2!"));
+      //NewSerial.print(F("!Too many logs:2!"));
       return(0); //Bail!
     }
   }
@@ -296,7 +319,7 @@ void seqlog(void)
   //Try to create sequential file
   if (!seqFile.open(sequentialFileName, O_CREAT | O_WRITE))
   {
-    NewSerial.print(F("Error creating SEQLOG\n"));
+    //NewSerial.print(F("Error creating SEQLOG\n"));
     return;
   }
 
@@ -340,7 +363,7 @@ byte append_file(char* file_name)
   NewSerial.println(FreeStack());
 #endif
 
-  NewSerial.print(F("<")); //give a different prompt to indicate no echoing
+  //NewSerial.print(F("<")); //give a different prompt to indicate no echoing
   digitalWrite(statled1, HIGH); //Turn on indicator LED
 
   //Start recording incoming characters
@@ -764,7 +787,7 @@ void record_config_file(void)
   //If there is currently a config file, trash it
   if (myFile.open(configFileName, O_WRITE)) {
     if (!myFile.remove()){
-      NewSerial.println(F("Remove config failed"));
+      //NewSerial.println(F("Remove config failed"));
       myFile.close(); //Close this file
       return;
     }
@@ -793,7 +816,7 @@ void record_config_file(void)
 
   //Record current system settings to the config file
   if(myFile.write(settings_string, strlen(settings_string)) != strlen(settings_string))
-    NewSerial.println(F("error writing to file"));
+    //NewSerial.println(F("error writing to file"));
 
   myFile.println(); //Add a break between lines
 
@@ -849,4 +872,3 @@ void toggleLED(byte pinNumber)
   if (digitalRead(pinNumber)) digitalWrite(pinNumber, LOW);
   else digitalWrite(pinNumber, HIGH);
 }
-
