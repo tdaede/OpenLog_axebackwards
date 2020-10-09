@@ -132,7 +132,10 @@ int timer1_counter;
 ISR(TIMER1_OVF_vect)        // interrupt service routine 
 {
   TCNT1 = timer1_counter;   // preload timer
+  // note: make sure NewSerial's transmit buffer is sufficiently large
+  // for all of the serial commands we send out during this interrupt
   NewSerial.print(F("\2\1\4@\204\3")); // get mc data for local
+  //NewSerial.print(F("\2\3\"\2\4\316@\3")); // get mc data for CAN ID 2
 }
 
 void setup(void)
@@ -161,8 +164,8 @@ void setup(void)
   noInterrupts();
   // Set timer1_counter to the correct value for our interrupt interval
   //timer1_counter = 64911;   // preload timer 65536-16MHz/256/100Hz
-  //timer1_counter = 64286;   // preload timer 65536-16MHz/256/50Hz
-  timer1_counter = 34286;   // preload timer 65536-16MHz/256/2Hz
+  timer1_counter = 64286;   // preload timer 65536-16MHz/256/50Hz
+  //timer1_counter = 34286;   // preload timer 65536-16MHz/256/2Hz
   
   TCNT1 = timer1_counter;   // preload timer
   TCCR1B |= (1 << CS12);    // 256 prescaler 
